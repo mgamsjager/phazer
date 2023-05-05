@@ -11,3 +11,5 @@ rss = "2.0.3"
 simple-error = "0.3.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+ansi_term = "0.12.1"
+chrono = "0.4.24"
