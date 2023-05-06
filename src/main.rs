@@ -9,6 +9,12 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{thread, time};
 
+#[derive(Debug, PartialEq, Clone)]
+struct CustomFeederItem {
+    channel_owner: String,
+    item: Item,
+}
+
 fn get_feed(feed_url: &str) -> Result<Channel, Box<dyn Error>> {
     let content = reqwest::blocking::get(feed_url)?.bytes()?;
     let channel = Channel::read_from(&content[..])?;
@@ -31,60 +37,72 @@ fn sort(a: &Item, b: &Item) -> Ordering {
     aa.cmp(&bb)
 }
 
+fn output_feeder_item(cf_item: &CustomFeederItem) {
+    let date = cf_item.item.pub_date.as_ref().unwrap();
+    let parsed_date = DateTime::parse_from_rfc2822(date)
+        .unwrap_or_default()
+        .format("%d-%m-%Y %H:%M");
+
+    println!(
+        "{date} | {owner: <15} | {title}",
+        date = Style::new().bold().paint(parsed_date.to_string()),
+        owner = cf_item.channel_owner,
+        title = Style::new()
+            .bold()
+            .paint(cf_item.item.title.as_ref().unwrap())
+    );
+}
+
+fn differentiator(rx: Receiver<Channel>, item_tx: Sender<CustomFeederItem>) {
+    let mut cached_items: HashMap<String, Item> = HashMap::new();
+    for channel in rx {
+        let mut sorted_items = channel.items.clone();
+        sorted_items.sort_by(sort);
+
+        for item in &sorted_items[sorted_items.len() - 5..] {
+            if let Some(guid) = item.guid.as_ref() {
+                let key = &guid.value;
+                if let Vacant(entry) = cached_items.entry(String::from(key)) {
+                    entry.insert(item.to_owned());
+                    let cf_item = CustomFeederItem {
+                        channel_owner: channel.title.to_owned(),
+                        item: item.clone(),
+                    };
+                    item_tx
+                        .clone()
+                        .send(cf_item)
+                        .expect("Unable to send feeder item to channel");
+                }
+            } else {
+                eprintln!("No Guid found for item {}", item.link.to_owned().unwrap());
+            }
+        }
+    }
+}
+
 fn main() {
     let (tx, rx): (Sender<Channel>, Receiver<Channel>) = mpsc::channel();
-    let (item_tx, item_rx): (Sender<Item>, Receiver<Item>) = mpsc::channel();
+    let (item_tx, item_rx): (Sender<CustomFeederItem>, Receiver<CustomFeederItem>) =
+        mpsc::channel();
     let feeds = vec![
         "http://feeds.feedburner.com/tweakers/nieuws",
         "https://feeds.nos.nl/nosnieuwsalgemeen",
         "https://fd.nl/?rss",
         "https://fd.nl/beurs?rss",
+        "https://www.heise.de/rss/heise-Rubrik-IT.rdf",
+        "https://www.heise.de/rss/heise-Rubrik-Netzpolitik.rdf",
+        "https://www.heise.de/rss/heise-Rubrik-Wirtschaft.rdf",
     ];
 
     for feed in feeds {
         create_feed_tx_thread(tx.clone(), feed);
     }
 
-    // Diff thread.
-    thread::spawn(move || {
-        let mut cached_items: HashMap<String, Item> = HashMap::new();
-        for channel in rx {
-            let mut sorted_items = channel.items.clone();
-            sorted_items.sort_by(sort);
-
-            for item in &sorted_items[sorted_items.len() - 5..] {
-                if let Some(guid) = item.guid.as_ref() {
-                    let key = &guid.value;
-                    if let Vacant(entry) = cached_items.entry(String::from(key)) {
-                        entry.insert(item.to_owned());
-                        item_tx.clone().send(item.to_owned()).unwrap();
-                    }
-                } else {
-                    eprintln!("No Guid found for item {}", item.link.to_owned().unwrap());
-                }
-            }
-        }
-    });
+    thread::spawn(move || differentiator(rx, item_tx));
 
     std::process::Command::new("clear").status().unwrap();
 
-    for item in item_rx {
-        let date = &item.pub_date.as_ref().unwrap();
-        let parsed_date = DateTime::parse_from_rfc2822(date)
-            .unwrap_or_default()
-            .format("%d-%m-%Y %H:%M");
-        println!(
-            "{date} | {gui} | {title} |",
-            date = Style::new().bold().paint(parsed_date.to_string()),
-            gui = item
-                .guid
-                .as_ref()
-                .unwrap()
-                .value
-                .as_str()
-                .get(..20)
-                .unwrap_or_default(),
-            title = Style::new().bold().paint(item.title.as_ref().unwrap())
-        );
+    for c_f_item in item_rx {
+        output_feeder_item(&c_f_item);
     }
 }
