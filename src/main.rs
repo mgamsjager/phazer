@@ -9,6 +9,9 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{thread, time};
 
+mod config;
+use config::read_config;
+
 #[derive(Debug, PartialEq, Clone)]
 struct CustomFeederItem {
     channel_owner: String,
@@ -84,17 +87,25 @@ fn main() {
     let (tx, rx): (Sender<Channel>, Receiver<Channel>) = mpsc::channel();
     let (item_tx, item_rx): (Sender<CustomFeederItem>, Receiver<CustomFeederItem>) =
         mpsc::channel();
-    let feeds = vec![
-        "http://feeds.feedburner.com/tweakers/nieuws",
-        "https://feeds.nos.nl/nosnieuwsalgemeen",
-        "https://fd.nl/?rss",
-        "https://fd.nl/beurs?rss",
-        "https://www.heise.de/rss/heise-Rubrik-IT.rdf",
-        "https://www.heise.de/rss/heise-Rubrik-Netzpolitik.rdf",
-        "https://www.heise.de/rss/heise-Rubrik-Wirtschaft.rdf",
-    ];
+
+    let config = read_config("feeds.toml");
+
+    let feeds = match config {
+        Ok(c) => c.feeds.to_vec(),
+        Err(e) => {
+            eprintln!("Error parsing config file, {}", e);
+            std::process::exit(1);
+        }
+    };
 
     for feed in feeds {
+        let feed: &str = match feed.as_str() {
+            None => {
+                eprintln!("Invalid feed url");
+                std::process::exit(1);
+            }
+            Some(f) => f,
+        };
         create_feed_tx_thread(tx.clone(), feed);
     }
 
