@@ -1,5 +1,6 @@
 use ansi_term::Style;
 use chrono::DateTime;
+use clap::Parser;
 use rss::{Channel, Item};
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::Vacant;
@@ -11,6 +12,9 @@ use std::{thread, time};
 
 mod config;
 use config::read_config;
+
+mod cli;
+use cli::{Args, ONCE, SETTINGS};
 
 #[derive(Debug, PartialEq, Clone)]
 struct CustomFeederItem {
@@ -30,7 +34,10 @@ fn create_feed_tx_thread(tx: Sender<Channel>, feed_url: &str) {
     thread::spawn(move || loop {
         if let Ok(c) = get_feed(&string) {
             tx.send(c).expect("Failed to put on transmitter");
-            thread::sleep(time::Duration::from_secs(60 * 1));
+
+            unsafe {
+                thread::sleep(time::Duration::from_secs(60 * SETTINGS.interval));
+            };
         }
     });
 }
@@ -84,6 +91,13 @@ fn differentiator(rx: Receiver<Channel>, item_tx: Sender<CustomFeederItem>) {
 }
 
 fn main() {
+    let args = Args::parse();
+    unsafe {
+        ONCE.call_once(|| {
+            SETTINGS.interval = args.interval;
+        });
+    }
+
     let (tx, rx): (Sender<Channel>, Receiver<Channel>) = mpsc::channel();
     let (item_tx, item_rx): (Sender<CustomFeederItem>, Receiver<CustomFeederItem>) =
         mpsc::channel();
