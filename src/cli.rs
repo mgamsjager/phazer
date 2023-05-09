@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::sync::Once;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -12,7 +11,10 @@ pub struct Args {
 #[derive(Copy, Clone)]
 pub struct Settings {
     pub interval: u64,
+    pub max_cache_size: usize,
 }
 
-pub static mut SETTINGS: Settings = Settings { interval: 1 };
-pub static ONCE: Once = Once::new();
+pub static mut SETTINGS: Settings = Settings {
+    interval: 1,
+    max_cache_size: 50,
+};
