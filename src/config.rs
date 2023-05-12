@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::path::Path;
 use std::{env, fs};
 use toml::de::Error;
 use toml::value::Array;
@@ -8,10 +9,11 @@ pub struct Config {
     pub feeds: Array,
 }
 
-pub fn read_config(filename: &str) -> Result<Config, Error> {
-    let home = env::var("HOME").unwrap();
-    println!("reading config file {}/{}", home, filename);
-    let content = match fs::read_to_string(format!("{}/{}", home, filename)) {
+pub fn read_config<P: AsRef<Path>>(filename: P) -> Result<Config, Error> {
+    let home = env::home_dir().unwrap();
+    let final_path = home.join(filename);
+    println!("reading config file {:?}", final_path.display());
+    let content = match fs::read_to_string(final_path) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error reading config file, {}", e);

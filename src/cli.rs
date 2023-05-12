@@ -15,6 +15,6 @@ pub struct Settings {
 }
 
 pub static mut SETTINGS: Settings = Settings {
-    interval: 1,
-    max_cache_size: 50,
+    interval: 5,
+    max_cache_size: 30,
 };

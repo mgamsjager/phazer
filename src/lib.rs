@@ -15,9 +15,19 @@ pub mod custom_feeder_item;
 pub use custom_feeder_item::CustomFeederItem;
 
 pub fn get_feed(feed_url: &str) -> Result<Channel, Box<dyn Error>> {
-    let content = reqwest::blocking::get(feed_url)?.bytes()?;
-    let channel = Channel::read_from(&content[..])?;
-    Ok(channel)
+    if let Ok(data) = reqwest::blocking::get(feed_url) {
+        let content = data.bytes()?;
+        match Channel::read_from(&content[..]) {
+            Ok(c) => Ok(c),
+            Err(e) => {
+                eprintln!("Error {} for url {}", e, feed_url);
+                panic!();
+            }
+        }
+    } else {
+        eprintln!("error");
+        panic!();
+    }
 }
 
 pub fn create_feed_tx_thread(tx: Sender<Channel>, feed_url: &str) {
@@ -57,7 +67,7 @@ pub fn differentiator(rx: Receiver<Channel>, item_tx: Sender<CustomFeederItem>) 
         let mut sorted_items = channel.items.clone();
         sorted_items.sort_by(sort);
 
-        for item in &sorted_items[sorted_items.len() - 5..] {
+        for item in &sorted_items[sorted_items.len() - 3..] {
             if let Some(guid) = item.guid.as_ref() {
                 let key = &guid.value;
                 if let Vacant(entry) = cached_items.entry(String::from(key)) {
@@ -77,18 +87,20 @@ pub fn differentiator(rx: Receiver<Channel>, item_tx: Sender<CustomFeederItem>) 
                 eprintln!("No Guid found for item {}", item.link.to_owned().unwrap());
             }
         }
-        let max_cache_size: usize;
-        unsafe { max_cache_size = SETTINGS.max_cache_size }
-
-        while cached_items.len() > max_cache_size {
-            if let Some(item) = heap.pop() {
-                println!(
-                    "Removing item {} with pub date {}",
-                    item.get_guid(),
-                    item.get_pub_date()
-                );
-                cached_items.remove(item.get_guid());
-            }
-        }
+        // let max_cache_size: usize;
+        // unsafe { max_cache_size = SETTINGS.max_cache_size }
+        //
+        // let mut sorted = heap.clone().into_sorted_vec();
+        // while cached_items.len() > max_cache_size {
+        //     if let Some(item) = sorted.pop() {
+        //         println!(
+        //             "Removing item {} with pub date {}\n items left in hash {}",
+        //             item.get_guid(),
+        //             item.get_pub_date(),
+        //             cached_items.len()
+        //         );
+        //         cached_items.remove(item.get_guid());
+        //     }
+        // }
     }
 }

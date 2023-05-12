@@ -12,6 +12,7 @@ impl PartialOrd for CustomFeederItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let a = DateTime::parse_from_rfc2822(self.item.pub_date.as_ref().unwrap()).unwrap();
         let o = DateTime::parse_from_rfc2822(other.item.pub_date.as_ref().unwrap()).unwrap();
+
         Some(a.cmp(&o).reverse())
     }
 }
