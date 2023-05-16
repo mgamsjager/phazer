@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use rss::Item;
 use std::cmp::Ordering;
 
@@ -10,8 +10,20 @@ pub struct CustomFeederItem {
 
 impl PartialOrd for CustomFeederItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let a = DateTime::parse_from_rfc2822(self.item.pub_date.as_ref().unwrap()).unwrap();
-        let o = DateTime::parse_from_rfc2822(other.item.pub_date.as_ref().unwrap()).unwrap();
+        let a_date = self
+            .item
+            .pub_date
+            .as_ref()
+            .unwrap_or(&Utc::now().to_rfc2822())
+            .clone();
+        let b_date = other
+            .item
+            .pub_date
+            .as_ref()
+            .unwrap_or(&Utc::now().to_rfc2822())
+            .clone();
+        let a = DateTime::parse_from_rfc2822(a_date.as_str()).unwrap();
+        let o = DateTime::parse_from_rfc2822(b_date.as_str()).unwrap();
 
         Some(a.cmp(&o).reverse())
     }
@@ -19,8 +31,20 @@ impl PartialOrd for CustomFeederItem {
 
 impl Ord for CustomFeederItem {
     fn cmp(&self, other: &Self) -> Ordering {
-        let a = DateTime::parse_from_rfc2822(self.item.pub_date.as_ref().unwrap()).unwrap();
-        let o = DateTime::parse_from_rfc2822(other.item.pub_date.as_ref().unwrap()).unwrap();
+        let a_date = self
+            .item
+            .pub_date
+            .as_ref()
+            .unwrap_or(&Utc::now().to_rfc2822())
+            .clone();
+        let b_date = other
+            .item
+            .pub_date
+            .as_ref()
+            .unwrap_or(&Utc::now().to_rfc2822())
+            .clone();
+        let a = DateTime::parse_from_rfc2822(a_date.as_str()).unwrap();
+        let o = DateTime::parse_from_rfc2822(b_date.as_str()).unwrap();
         a.cmp(&o).reverse()
     }
 }
@@ -40,8 +64,13 @@ impl Eq for CustomFeederItem {}
 
 impl CustomFeederItem {
     pub fn get_pub_date(&self) -> String {
-        let date = self.item.pub_date.as_ref().unwrap();
-        DateTime::parse_from_rfc2822(date)
+        let date = self
+            .item
+            .pub_date
+            .as_ref()
+            .unwrap_or(&Utc::now().to_rfc2822())
+            .clone();
+        DateTime::parse_from_rfc2822(date.as_str())
             .unwrap_or_default()
             .format("%d-%m-%Y %H:%M")
             .to_string()

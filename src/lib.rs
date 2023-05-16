@@ -1,12 +1,14 @@
 use ansi_term::Style;
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use rss::{Channel, Item};
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::Vacant;
 use std::collections::{BinaryHeap, HashMap};
 use std::error::Error;
+
 use std::sync::mpsc::{Receiver, Sender};
 use std::{thread, time};
+use toml::value::Date;
 
 mod cli;
 use cli::SETTINGS;
@@ -20,8 +22,8 @@ pub fn get_feed(feed_url: &str) -> Result<Channel, Box<dyn Error>> {
         match Channel::read_from(&content[..]) {
             Ok(c) => Ok(c),
             Err(e) => {
-                eprintln!("Error {} for url {}", e, feed_url);
-                panic!();
+                eprintln!("Error '{}' for url {}", e, feed_url);
+                Err(Box::new(e))
             }
         }
     } else {
@@ -44,8 +46,19 @@ pub fn create_feed_tx_thread(tx: Sender<Channel>, feed_url: &str) {
     });
 }
 pub fn sort(a: &Item, b: &Item) -> Ordering {
-    let aa = DateTime::parse_from_rfc2822(a.pub_date.as_ref().unwrap()).unwrap_or_default();
-    let bb = DateTime::parse_from_rfc2822(b.pub_date.as_ref().unwrap()).unwrap_or_default();
+    let a_date = a
+        .pub_date
+        .as_ref()
+        .unwrap_or(&Utc::now().to_rfc2822())
+        .clone();
+    let b_date = b
+        .pub_date
+        .as_ref()
+        .unwrap_or(&Utc::now().to_rfc2822())
+        .clone();
+
+    let aa = DateTime::parse_from_rfc2822(a_date.as_str()).unwrap_or_default();
+    let bb = DateTime::parse_from_rfc2822(b_date.as_str()).unwrap_or_default();
     aa.cmp(&bb)
 }
 
