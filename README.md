@@ -1,7 +1,10 @@
 # Phazer the RSS client
 
-## Changelog
+⚠️ Note: This is a hobby project to get more skilled in Rust. Don't take this repo as an example of good Rust code nor is this 
+production ready code. It works well enough for this type of project.  ⚠️
 
+
+## Changelog
 
 - v3: Format output
 - v2: Use config file
