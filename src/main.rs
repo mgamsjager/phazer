@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
-use std::time::{SystemTime};
+use std::time::SystemTime;
 use std::{env, fs, thread, time};
 
 use clap::Parser;
@@ -24,6 +24,8 @@ fn main() {
         });
     }
 
+    let mut list_of_feeds = vec![];
+
     let (tx, rx): (Sender<Channel>, Receiver<Channel>) = mpsc::channel();
     let (item_tx, item_rx): (Sender<CustomFeederItem>, Receiver<CustomFeederItem>) =
         mpsc::channel();
@@ -44,8 +46,12 @@ fn main() {
                 eprintln!("Invalid feed url");
                 std::process::exit(1);
             }
-            Some(f) => f,
+            Some(f) => {
+                list_of_feeds.push(f.to_owned());
+                f
+            }
         };
+
         create_feed_tx_thread(tx.clone(), feed);
     }
 
@@ -63,12 +69,20 @@ fn main() {
             if let Ok(time) = metadata.modified() {
                 if let Ok(diff) = time.duration_since(last_mod_time) {
                     if diff.as_millis() > 0 {
-                        println!("Update detected");
+                        println!("Update detected, {}", list_of_feeds.len());
+
                         let config = read_config(Path::new("feeds.toml"));
                         let mut feed = config.unwrap().feeds.to_vec();
                         feed.reverse();
-                        let newst = feed.get(0).unwrap();
-                        create_feed_tx_thread(tx.clone(), newst.as_str().unwrap());
+                        println!("{:?}", list_of_feeds); //TODO fix multi threads
+                        for f in feed {
+                            println!("feed item  {}", f);
+                            if !list_of_feeds.iter().any(|e| *e == f.to_string()) {
+                                println!("new thread");
+                                create_feed_tx_thread(tx.clone(), f.as_str().unwrap());
+                                list_of_feeds.push(f.to_string());
+                            }
+                        }
                         last_mod_time = time;
                     }
                 }

@@ -27,8 +27,8 @@ pub fn get_feed(feed_url: &str) -> Result<Channel, Box<dyn Error>> {
             }
         }
     } else {
-        eprintln!("error");
-        panic!();
+        eprintln!("error fetching {}", feed_url);
+        todo!()
     }
 }
 
@@ -57,8 +57,8 @@ pub fn sort(a: &Item, b: &Item) -> Ordering {
         .unwrap_or(&Utc::now().to_rfc2822())
         .clone();
 
-    let aa = DateTime::parse_from_rfc2822(a_date.as_str()).unwrap_or_default();
-    let bb = DateTime::parse_from_rfc2822(b_date.as_str()).unwrap_or_default();
+    let aa = DateTime::parse_from_rfc2822(a_date.as_str()).unwrap();
+    let bb = DateTime::parse_from_rfc2822(b_date.as_str()).unwrap();
     aa.cmp(&bb)
 }
 
