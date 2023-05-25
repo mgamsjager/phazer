@@ -16,6 +16,8 @@ mod config;
 
 pub static ONCE: Once = Once::new();
 
+const CONFIG_RELOAD_SLEEP: u64 = 2;
+
 fn main() {
     let args = Args::parse();
     unsafe {
@@ -65,7 +67,7 @@ fn main() {
             println!("Not supported on this platform");
         }
         loop {
-            let metadata = fs::metadata("/Users/matty/feeds.toml").unwrap();
+            let metadata = fs::metadata(env::home_dir().unwrap().join("feeds.toml")).unwrap();
             if let Ok(time) = metadata.modified() {
                 if let Ok(diff) = time.duration_since(last_mod_time) {
                     if diff.as_millis() > 0 {
@@ -87,7 +89,8 @@ fn main() {
                     }
                 }
             }
-            thread::sleep(time::Duration::from_secs(2));
+
+            thread::sleep(time::Duration::from_secs(CONFIG_RELOAD_SLEEP));
         }
     });
 

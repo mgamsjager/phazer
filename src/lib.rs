@@ -8,7 +8,6 @@ use std::error::Error;
 
 use std::sync::mpsc::{Receiver, Sender};
 use std::{thread, time};
-use toml::value::Date;
 
 mod cli;
 use cli::SETTINGS;
@@ -17,32 +16,25 @@ pub mod custom_feeder_item;
 pub use custom_feeder_item::CustomFeederItem;
 
 pub fn get_feed(feed_url: &str) -> Result<Channel, Box<dyn Error>> {
-    if let Ok(data) = reqwest::blocking::get(feed_url) {
-        let content = data.bytes()?;
-        match Channel::read_from(&content[..]) {
-            Ok(c) => Ok(c),
-            Err(e) => {
-                eprintln!("Error '{}' for url {}", e, feed_url);
-                Err(Box::new(e))
-            }
-        }
-    } else {
-        eprintln!("error fetching {}", feed_url);
-        todo!()
+    let data = reqwest::blocking::get(feed_url)?;
+    let content = data.bytes()?;
+    match Channel::read_from(&content[..]) {
+        Ok(c) => Ok(c),
+        Err(e) => Err(Box::new(e)),
     }
 }
 
 pub fn create_feed_tx_thread(tx: Sender<Channel>, feed_url: &str) {
-    let string = String::from(feed_url);
+    let feed_url = String::from(feed_url);
 
     thread::spawn(move || loop {
-        if let Ok(c) = get_feed(&string) {
-            tx.send(c).expect("Failed to put on transmitter");
-
-            unsafe {
-                thread::sleep(time::Duration::from_secs(60 * SETTINGS.interval));
-            };
+        match get_feed(&feed_url) {
+            Ok(c) => tx.send(c).expect("Failed to put on transmitter"),
+            Err(e) => eprintln!("get_fetch({}) resulted in error: '{}'", &feed_url, e),
         }
+        unsafe {
+            thread::sleep(time::Duration::from_secs(60 * SETTINGS.interval));
+        };
     });
 }
 pub fn sort(a: &Item, b: &Item) -> Ordering {
